@@ -1,3 +1,32 @@
+Question: You notice that a Linux server's performance has significantly degraded. How would you diagnose and resolve this issue?
+Answer- top, htop, iostat, vmstat, free, sar, dmesg,
+
+Question: The / partition on your server is running out of space. What steps would you take to identify and free up disk space?
+Answer: df, du, ls, and find | du -sh *| sort -rh | head
+
+Question: You need to deploy a new version of a web application on a Linux server. What steps would you follow to ensure a smooth deployment with minimal downtime?
+Answer: You need to discuss different deployment strategies like- Blue Green, Rolling Updates, Backup Plan, Containers etc.
+
+Question: Users are experiencing connectivity issues with a server. How would you troubleshoot and resolve network problems on a Linux server?
+Answer: ping, traceroute, netstat, ss, ifconfig or ip, tcpdump, network interfaces, routing tables, and firewall settings
+
+Question: The file system on one of your Linux servers has become corrupted. What steps would you take to recover from this situation?
+Answer: fsck, examining dmesg logs for file system errors, and restoring from backups
+
+Question: A critical service on your server has stopped unexpectedly. How would you approach diagnosing and resolving the issue?
+Answer: systemctl or service commands, check logs under /var/log or custom location
+
+Question: Our organization requires regular backups of important data with an automated recovery process. How would you set this up on a Linux server?
+Answer: rsync, tar, cron, and other backup utilities
+
+Question: You must ensure that your Linux servers are up-to-date with the latest security patches. What is your approach to managing updates and patches?
+Answer: yum, apt, dnf, and details of these command
+
+Question: You are required to upgrade the kernel on a production server. What steps would you follow to ensure a successful upgrade?
+Answer: Explain process of Kernel Upgrades, What backup to take, discuss about grub, details of grub.conf file.
+
+
+
 1 How many flavours of Linux you have worked on?
 Ans Ubuntu, Debian, RHEL, Fedora, Kali Linux, CentOS etc..
 
