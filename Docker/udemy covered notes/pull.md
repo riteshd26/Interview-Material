@@ -1,9 +1,4 @@
 
----
-title: "How to Pull and Run Docker Images from Docker Hub and run"
-description: "Learn how to pull Docker images from Docker Hub and run them. This guide covers pulling images, running containers, starting and stopping containers, and removing images."
----
-
 # How to Pull and Run Docker Images from Docker Hub and Run
 
 ---
