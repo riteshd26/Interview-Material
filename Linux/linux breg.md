@@ -548,7 +548,82 @@ tail -f <file_name>
 <code>lsof -i -P</code> can be used for the same purpose as netstat.
 <code>ngrep -d any metafilter</code> for matching regex against payloads of packets.
 <code>tcpdump</code> for capturing packets
-<code>wireshark</code> same concept as tcpdump but with GUI (optional).
+<code>wireshark</code> same concept as tcpdump but with GUI (optional).Tools I use for troubleshooting & debugging network issues
+✅ 1. Connectivity & Reachability
+
+ping – check basic connectivity & latency
+
+traceroute / tracepath – identify routing hops & drops
+
+ping google.com
+traceroute 8.8.8.8
+
+✅ 2. DNS Troubleshooting
+
+dig – deep DNS analysis
+
+nslookup – quick checks
+
+resolvectl – systemd-resolved status
+
+dig google.com
+resolvectl status
+
+✅ 3. IP & Routing
+
+ip a – IP addresses
+
+ip r – routing table
+
+ip neigh – ARP table
+
+ip addr
+ip route
+
+✅ 4. Port & Service Checks
+
+ss -tulnp – open ports (preferred over netstat)
+
+lsof -i :8080 – process using a port
+
+nc / telnet – test port connectivity
+
+ss -tulnp
+nc -zv host 443
+
+✅ 5. Traffic & Packet Analysis
+
+tcpdump – packet capture
+
+wireshark – deep packet inspection (GUI)
+
+tcpdump -i eth0 port 443
+
+✅ 6. HTTP / API Debugging
+
+curl -v – headers & TLS
+
+wget – file & endpoint testing
+
+curl -v https://example.com
+
+✅ 7. Firewall & Security
+
+iptables -L -n
+
+firewall-cmd --list-all
+
+ufw status
+
+✅ 8. Cloud / Kubernetes (Real-World)
+
+AWS: VPC Flow Logs, Security Groups, NACLs, Reachability Analyzer
+
+K8s: kubectl exec, kubectl describe, kubectl logs
+
+🎯 Interview-Perfect Summary
+
+“I start with connectivity (ping, traceroute), then DNS (dig), routing (ip route), port checks (ss), packet capture (tcpdump), and finally firewall or cloud-level logs depending on the environment.”
 </b></details>
 
 <details>
