@@ -448,6 +448,30 @@ True
 
 <details>
 <summary>Explain what are ACLs. For what use cases would you recommend to use them?</summary><br><b>
+
+  ACLs provide fine-grained file permissions in Linux, allowing multiple users and groups to have specific access beyond standard ownership and permission bits.
+  ACL Mask Entry (Interview Trap Explained)
+❓ What is the ACL mask?
+
+The mask defines the maximum effective permissions for:
+
+All named users
+
+All named groups
+
+The group owner (when ACLs are present)
+
+👉 Even if an ACL entry grants permissions, the mask can silently restrict them.
+📌 Example
+
+Give user alice read/write access to a file:
+
+setfacl -m u:alice:rw file.txt
+
+
+View ACLs:
+
+getfacl file.txt
 </b></details>
 
 <details>
@@ -524,6 +548,7 @@ To stop a service: `systemctl stop <service name>`
 
 <details>
 <summary>Describe how to make a certain process/app a service</summary><br><b>
+  To make an application a service in Linux, create a systemd unit file defining how the process starts, reload systemd, and enable the service to start at boot.
 </b></details>
 
 ### Troubleshooting and Debugging
@@ -542,7 +567,55 @@ tail -f <file_name>
 
 <details>
 <summary>What are you using for troubleshooting and debugging <b>network</b> issues?</summary><br><b>
+1. Connectivity & Path Discovery (Layers 3 & 4)
 
+The first goal is to determine if the target is reachable and where the connection is breaking.1
+
+ping: The "first responder."2 I use it to check basic reachability and latency via ICMP.
+
+Tip: If ping fails but the service is up, the target might be blocking ICMP traffic.
+
+traceroute (Linux) / tracert (Windows): Used to see the hop-by-hop path.3 It helps identify which specific router or ISP is dropping packets.4
+
++1
+
+mtr (My Traceroute): A superior choice for production. It combines ping and traceroute into a real-time, continuously updating display.5 It’s perfect for spotting intermittent packet loss at a specific hop.6
+
++1
+
+2. Port & Socket Analysis (Layer 4)
+
+If the host is "alive" but the app isn't responding, I check the specific ports.
+
+telnet or nc (Netcat): I use nc -zv <host> <port> to quickly verify if a TCP port is open.7 It’s faster and cleaner than telnet for automated scripts.
+
+ss or netstat: On the server itself, I use ss -tuln to see which ports are actually listening.8 ss is the modern, faster replacement for netstat.9
+
+lsof -i :<port>: Essential for finding exactly which Process ID (PID) is "squatting" on a port you're trying to use.
+
+3. DNS & Domain Troubleshooting (Layer 7)
+
+When you can reach an IP but not a domain name, the issue is likely DNS.10
+
+dig: My preferred tool for DNS.11 It provides detailed output about A records, MX records, and TTL.
+
+Example: dig @8.8.8.8 google.com checks if the issue is with the local DNS resolver by querying Google directly.
+
+nslookup: A simpler alternative available on both Windows and Linux for basic name resolution checks.12
+
+4. Packet-Level Inspection (The "Deep Dive")
+
+When the connection is established but the data is corrupted or the handshake is failing (e.g., SSL/TLS issues).
+
+tcpdump: The industry standard for command-line packet sniffing.13 I use it to capture traffic into a .pcap file.
+
+Command: sudo tcpdump -i eth0 port 80 -w capture.pcap
+
+Wireshark: I pull the .pcap file from the server and open it in Wireshark on my local machine to visually analyze the TCP three-way handshake, retransmissions, or encrypted payloads.14
+
+Summary Table for Quick Reference
+
+ProblemRecommended ToolIs the server "up"?ping, mtrWhere is the lag?mtr, tracerouteIs the app listening?ss -tuln, netstatIs the firewall blocking a port?nc -zv, telnetIs DNS pointing correctly?dig, nslookupWhy is the connection dropping?tcpdump, Wireshark
 <code>dstat -t</code> is great for identifying network and disk issues.
 <code>netstat -tnlaup</code> can be used to see which processes are running on which ports.
 <code>lsof -i -P</code> can be used for the same purpose as netstat.
