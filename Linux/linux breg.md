@@ -702,7 +702,66 @@ K8s: kubectl exec, kubectl describe, kubectl logs
 <details>
 <summary>What are you using for troubleshooting and debugging <b>disk & file system</b> issues?</summary><br><b>
 
-<code>dstat -t</code> is great for identifying network and disk issues.
+<code>
+When troubleshooting disk and file system issues, I follow a systematic workflow that moves from **utilization** (Is it full?) to **performance** (Is it slow?) and finally to **integrity** (Is it broken?).
+
+Here are the tools and strategies I use to diagnose these issues like a DevOps professional:
+
+---
+
+## 1. Capacity & Inode Exhaustion (The "No Space Left" Error)
+
+Often, a system reports "No space left on device" even if the disk appears to have free gigabytes. This is usually due to **Inodes** (metadata entries) running out.
+
+* **`df -h`**: The first command I run to see a human-readable summary of used/available space across all mount points.
+* **`df -i`**: Crucial for checking Inode usage. If `IUse%` is 100%, you cannot create new files, even if you have 1TB of free space. This happens when there are millions of tiny files (like session files or small logs).
+* **`du -sh /* | sort -hr`**: I use this to find "heavy" directories. Adding `sort -hr` puts the largest folders at the top so I can drill down quickly.
+* **`lsof +L1` or `lsof | grep deleted**`: A "hidden" space eater. If you delete a large log file while a process (like Nginx) still has it open, the space isn't reclaimed until the process restarts. This command identifies those "zombie" files.
+
+---
+
+## 2. Disk I/O & Performance (The "System is Lagging" Issue)
+
+If the disk isn't full but the system is sluggish, the bottleneck is likely **I/O Wait**.
+
+* **`iostat -xz 1`**: Part of the `sysstat` package. I look at the `%util` column; if it's consistently near 100%, the disk is saturated.
+* **`iotop`**: Similar to `top`, but for disk I/O. It shows exactly which process (PID) is reading or writing the most data in real-time.
+* **`dmesg | grep -i "error\|disk\|ext4"`**: I check the kernel ring buffer for hardware-level errors, such as "I/O error," which indicates a failing physical disk or cable.
+
+---
+
+## 3. File System Integrity (The "Corrupted Data" Issue)
+
+If a system crashes or loses power, the file system can become inconsistent.
+
+* **`fsck` (File System Consistency Check)**: The go-to tool for repairing errors.
+* **Note:** Never run `fsck` on a mounted file system. You must unmount it first or boot into a Live USB/Recovery mode for the root partition.
+
+
+* **`smartctl -a /dev/sda`**: Part of `smartmontools`. I use this to check the **S.M.A.R.T.** status of the physical drive to see if it’s literally dying (e.g., high reallocated sector counts).
+* **`badblocks`**: Used to search for physical bad sectors on a drive.
+
+---
+
+## Interview Tip: The "Logrotate" Strategy
+
+In a DevOps interview, don't just explain how to find a full disk—explain how to **prevent** it. Mention that you implement **`logrotate`** to compress and purge old logs and set up alerts in **Prometheus/Grafana** to notify you when a disk hits 80% capacity.
+
+---
+
+## Summary of Commands
+
+| Tool | Best For... |
+| --- | --- |
+| **`df -h` / `df -i**` | High-level space and inode usage. |
+| **`du -sh`** | Finding the specific folder "eating" the space. |
+| **`lsof`** | Finding deleted files still held open by processes. |
+| **`iotop` / `iostat**` | Diagnosing slow performance (I/O bottlenecks). |
+| **`fsck`** | Repairing file system corruption after a crash. |
+
+Would you like me to create a **bash script** that automatically finds and reports the top 10 largest files and checks for deleted-but-open files?
+
+dstat -t</code> is great for identifying network and disk issues.
 <code>opensnoop</code> can be used to see which files are being opened on the system (in real time).
 </b></details>
 
