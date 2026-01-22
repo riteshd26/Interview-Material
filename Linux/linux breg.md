@@ -786,14 +786,422 @@ dstat -t</code> is great for identifying network and disk issues.
 * Run `dstat -t` to check if it's related to disk or network.
 * Check if it's network related with `sar`
 * Check I/O stats with `iostat`
+
+* Step 1: Clarify the problem (VERY important)
+
+Before touching the system, I ask scoping questions:
+
+Is the slowness constant or intermittent?
+
+When did it start?
+
+Is it system-wide or application-specific?
+
+Any recent changes? (deployments, patches, config changes)
+
+Is it affecting all users or only some?
+
+This avoids blind troubleshooting.
+
+🎯 Step 2: High-level system health check
+
+I check the usual suspects first.
+
+CPU
+uptime
+top
+
+
+High load?
+
+High %iowait?
+
+Too many running processes?
+
+Memory
+free -h
+vmstat 1 5
+
+
+Low available memory?
+
+Heavy swapping?
+
+OOM events?
+
+Disk I/O
+iostat -xz 1 5
+df -h
+df -i
+
+
+High await?
+
+Disk 100% utilized?
+
+Inodes exhausted?
+
+Network
+ss -s
+ping
+sar -n DEV
+
+
+Packet drops?
+
+Retransmissions?
+
+Interface saturation?
+
+🎯 Step 3: Identify the bottleneck
+
+Once I see pressure, I zoom in.
+
+If CPU is high
+top
+pidstat -u 1
+
+
+Which process?
+
+User vs system CPU?
+
+If memory is the issue
+ps aux --sort=-%mem | head
+
+
+Memory leak?
+
+Cache vs application usage?
+
+If disk is slow
+iotop
+lsof +D /mountpoint
+
+
+Which process is hammering disk?
+
+Log flooding?
+
+If load is high but CPU is idle
+
+➡️ Likely I/O wait or blocked processes
+
+🎯 Step 4: Application-level checks
+
+If system looks fine:
+
+Application logs
+
+Thread pools / DB connections
+
+External dependencies (DB, cache, APIs)
+
+JVM / Node / Python metrics (if applicable)
+
+🎯 Step 5: Check historical data
+
+If issue already passed:
+
+sar -u
+sar -r
+sar -d
+
+
+Helps answer “what happened at 2 AM?”
+
+🎯 Step 6: Take corrective action
+
+Depending on findings:
+
+Kill or restart runaway process
+
+Free disk / rotate logs
+
+Scale resources
+
+Roll back recent deployment
+
+Tune kernel / app configs
+
+🧠 Interview Golden Line (use this)
+
+I follow a top-down approach: clarify the problem, check CPU, memory, disk, and network, identify the bottleneck, then drill into the responsible process or application before taking corrective action.
+
+🚩 Common Interview Traps
+
+❌ Jumping straight to top
+❌ Killing processes blindly
+❌ Ignoring disk inodes
+❌ Not checking recent changes
+
+⭐ One-line Summary (if interviewer interrupts)
+
+I first scope the issue, then systematically check CPU, memory, disk, and network to isolate the bottleneck before acting.
 </b></details>
 
 <details>
 <summary>Explain iostat output</summary><br><b>
+  iostat helps identify disk bottlenecks by showing request rate, latency (await), and disk saturation (%util).
+  🔹 What is iostat?
+
+iostat reports CPU usage and disk I/O statistics.
+It helps identify disk bottlenecks and I/O wait issues.
+
+Command usually used:
+
+iostat -xz 1 5
+
+🔹 CPU section (top part)
+
+Example:
+
+avg-cpu:  %user  %system  %iowait  %idle
+           10.2     3.1      25.4    61.3
+
+Fields explained
+
+%user – CPU time spent running user processes
+
+%system – CPU time spent in kernel
+
+%iowait – CPU waiting for disk I/O ⚠️
+
+%idle – Idle CPU time
+
+👉 High %iowait = disk is slow
+
+🔹 Device section (most important)
+
+Example:
+
+Device    r/s   w/s  rkB/s  wkB/s  await  svctm  %util
+sda      120    80   4096   2048   35.2    4.5   99.6
+
+🔹 Disk metrics explained (INTERVIEW GOLD)
+r/s, w/s
+
+Read / Write requests per second
+
+Shows I/O load
+
+rkB/s, wkB/s
+
+Read / Write throughput
+
+Measures data volume
+
+await (ms) ⭐
+
+Average time an I/O request waits + is serviced
+
+Includes queue + service time
+
+👉 High await = slow disk or I/O contention
+
+svctm (ms) ⚠️ (deprecated but still asked)
+
+Time taken by disk to service a request
+
+Not reliable on modern kernels
+
+%util ⭐⭐⭐
+
+Percentage of time disk is busy
+
+%util	Meaning
+<70%	Healthy
+80–90%	Busy
+~100%	Disk bottleneck
+
+👉 %util near 100% = saturated disk
+
+🔥 Key Interpretation Patterns (Interview Traps)
+Case 1: High %iowait + High await
+
+➡️ Disk is slow
+
+Case 2: %util ~100% + Low CPU
+
+➡️ Disk is the bottleneck
+
+Case 3: High r/s, w/s but low await
+
+➡️ Disk is fast, workload is heavy but OK
+
+Case 4: High load average but low CPU
+
+➡️ Blocked processes waiting on disk
+
+🔹 Extended fields (-x)
+
+Important extras:
+
+avgqu-sz – Average queue size
+
+rrqm/s, wrqm/s – Merged I/O requests
+
+High queue size = backlog
+
+🧠 One-Line Interview Answer
+
+iostat helps identify disk bottlenecks by showing request rate, latency (await), and disk saturation (%util).
+
+🏆 Interview Closing Statement
+
+If %util is near 100% and await is high, the disk is the performance bottleneck.
 </b></details>
 
 <details>
 <summary>How to debug binaries?</summary><br><b>
+🔹 What does “debugging a binary” mean?
+
+Analyzing a compiled executable (no source code or with source) to understand:
+
+Why it crashes
+
+Why it hangs
+
+Why it behaves incorrectly
+
+Performance or memory issues
+
+🔹 Step-by-step approach (INTERVIEW FLOW)
+1️⃣ Identify the failure type
+
+Crash (segfault)
+
+Hang / freeze
+
+High CPU / memory
+
+Wrong output
+
+🔹 2️⃣ Basic inspection tools
+Check binary type
+file mybinary
+
+Check dependencies
+ldd mybinary
+
+
+Missing libraries = startup failure
+
+🔹 3️⃣ Trace system calls (MOST COMMON)
+strace
+strace ./mybinary
+strace -p <PID>
+
+
+Useful flags:
+
+strace -f -o trace.log ./mybinary
+
+
+👉 Shows:
+
+File access
+
+Network calls
+
+Permission errors
+
+Hangs (blocked syscalls)
+
+🔹 4️⃣ Debug crashes
+Check kernel logs
+dmesg | tail
+
+
+Look for:
+
+segfault
+
+oom-killer
+
+Core dump analysis
+
+Enable core dumps:
+
+ulimit -c unlimited
+
+
+After crash:
+
+gdb ./mybinary core
+
+
+Inside gdb:
+
+bt
+
+🔹 5️⃣ Debug live or offline with GDB
+gdb ./mybinary
+
+
+Common commands:
+
+run
+bt
+info registers
+info threads
+
+
+Attach to running process:
+
+gdb -p <PID>
+
+🔹 6️⃣ Debug memory issues
+Valgrind
+valgrind --leak-check=full ./mybinary
+
+
+Detects:
+
+Memory leaks
+
+Invalid memory access
+
+Use-after-free
+
+🔹 7️⃣ Performance debugging
+CPU profiling
+perf top
+perf record ./mybinary
+perf report
+
+🔹 8️⃣ Library-level debugging
+LD_DEBUG=libs ./mybinary
+
+🔹 9️⃣ Check open files & resources
+lsof -p <PID>
+
+🔹 Real-world debugging flow (PRODUCTION)
+
+strace → syscall issues
+
+dmesg → kernel errors
+
+lsof → resource leaks
+
+gdb → crash analysis
+
+valgrind → memory bugs
+
+🧠 One-line Interview Answer
+
+I debug binaries using tools like strace for system calls, gdb for crashes, valgrind for memory issues, and perf for performance analysis.
+
+⚠️ Interview Traps
+
+❌ Jumping straight to gdb
+❌ Ignoring strace
+❌ Forgetting core dumps
+❌ Not checking ldd
+
+🏆 Final Interview Statement
+
+I always start with lightweight tools like strace and logs before moving to deep debuggers like gdb
 </b></details>
 
 <details>
@@ -802,6 +1210,83 @@ dstat -t</code> is great for identifying network and disk issues.
 
 <details>
 <summary>How you measure time execution of a program?</summary><br><b>
+  How do you measure execution time of a program?
+1️⃣ Using time command (MOST COMMON)
+time ./my_program
+
+Output explained:
+real  0m2.345s   → Wall clock time (actual elapsed time)
+user  0m1.820s   → CPU time spent in user space
+sys   0m0.210s   → CPU time spent in kernel space
+
+
+📌 Interview key point
+
+real ≠ CPU time
+
+user + sys ≈ CPU utilization
+
+🔹 2️⃣ Built-in shell time
+time ls
+
+
+or explicit:
+
+/usr/bin/time ./my_program
+
+
+More detailed:
+
+/usr/bin/time -v ./my_program
+
+
+Shows:
+
+Max memory usage
+
+Context switches
+
+Page faults
+
+🔹 3️⃣ Measure inside a script
+start=$(date +%s)
+./my_program
+end=$(date +%s)
+echo $((end - start))
+
+
+High precision:
+
+date +%s%N
+
+🔹 4️⃣ Measure CPU-specific time (programmatic)
+
+C/C++ → clock_gettime()
+
+Java → System.nanoTime()
+
+Python → time.perf_counter()
+
+🔹 5️⃣ Performance profiling (advanced)
+perf stat ./my_program
+
+🧠 Interview One-Liner
+
+I measure execution time using the time command, analyzing real, user, and system time to understand wall-clock duration versus CPU usage.
+
+⚠️ Interview Traps
+
+❌ Saying only real matters
+❌ Not knowing difference between user and sys
+❌ Forgetting /usr/bin/time -v
+
+🏆 Production Insight
+
+Slow program but low CPU → I/O bound
+
+High user time → CPU heavy logic
+
+High sys time → Excessive system calls
 </b></details>
 
 #### Scenarios
@@ -942,6 +1427,69 @@ It means that the key of the remote host was changed and doesn't match the one t
 
 <details>
 <summary>What is the difference between SSH and SSL?</summary><br><b>
+  🔐 Difference between SSH and SSL (TLS)
+Aspect	SSH	SSL / TLS
+Full form	Secure Shell	Secure Sockets Layer / Transport Layer Security
+Primary use	Secure remote login & command execution	Secure data transmission over networks
+Common use cases	SSH login, SCP, SFTP, port forwarding	HTTPS, secure APIs, email (SMTP/IMAP over TLS)
+Default port	22	443 (HTTPS)
+Authentication	Passwords, public/private keys	X.509 certificates (CA-based)
+Encryption scope	Encrypts entire session	Encrypts application data
+Client–server model	Yes	Yes
+Interactive shell	✅ Yes	❌ No
+Tunnel support	Yes (SSH tunneling)	Not designed for tunneling
+🧠 Key Conceptual Difference (Important in Interviews)
+SSH
+
+Designed for secure remote administration
+
+Provides:
+
+Secure shell access
+
+Secure file transfer
+
+Port forwarding
+
+Often used by admins and DevOps engineers
+
+SSL / TLS
+
+Designed to secure communication between applications
+
+Ensures:
+
+Encryption
+
+Integrity
+
+Authentication
+
+Used mainly for web traffic & APIs
+
+🔑 Authentication Difference
+
+SSH → Trust based (key pairs)
+
+SSL/TLS → CA trust chain
+
+🔥 Real-World Example
+
+You SSH into a Linux server to fix an issue
+
+You use HTTPS (TLS) to access a web app securely
+
+⚠️ Interview Trap Questions
+
+❌ “SSL is insecure” → SSL is deprecated, TLS is used
+
+❌ “SSH uses certificates” → SSH uses key pairs, not X.509
+
+❌ “Both are the same” → Different purposes
+
+🏆 One-Line Interview Answer
+
+SSH secures remote system access and command execution, while SSL/TLS secures application-level data transmission such as HTTPS.
 </b></details>
 
 <details>
@@ -1006,6 +1554,105 @@ Learn more : [How can I tell how many bits my ssh key is? - Superuser](https://s
 
 <details>
 <summary>What is SSH port forwarding?</summary><br><b>
+  🔐 What is SSH Port Forwarding? (Interview-Ready)
+
+SSH port forwarding is a technique that allows you to securely tunnel network traffic through an SSH connection, forwarding traffic from one port to another over an encrypted channel.
+
+👉 In simple words: SSH acts like a secure pipe for network traffic.
+
+🔹 Why is it used?
+
+Secure access to internal/private services
+
+Bypass firewalls safely
+
+Encrypt traffic for insecure protocols
+
+Access services without exposing them publicly
+
+🔹 Types of SSH Port Forwarding
+1️⃣ Local Port Forwarding (MOST COMMON)
+
+Access a remote service locally
+
+ssh -L local_port:remote_host:remote_port user@ssh_server
+
+
+📌 Example:
+
+ssh -L 8080:localhost:3306 user@server
+
+
+➡️ Access remote MySQL locally at:
+
+localhost:8080
+
+
+✔ Used when remote service is not publicly accessible
+
+2️⃣ Remote Port Forwarding
+
+Expose a local service to a remote machine
+
+ssh -R remote_port:localhost:local_port user@ssh_server
+
+
+📌 Example:
+
+ssh -R 9090:localhost:3000 user@server
+
+
+➡️ Remote users access:
+
+server:9090
+
+
+✔ Used for temporary public access (debugging, demos)
+
+3️⃣ Dynamic Port Forwarding (SOCKS Proxy)
+
+Dynamic traffic forwarding
+
+ssh -D 1080 user@server
+
+
+➡️ Creates a SOCKS proxy at:
+
+localhost:1080
+
+
+✔ Used to route multiple apps traffic securely
+
+🔹 Visual Explanation
+[Your Laptop] → SSH Tunnel → [Remote Server] → Internal Service
+
+🔐 Security Benefit
+
+Traffic is fully encrypted
+
+No need to open firewall ports
+
+Authentication via SSH keys
+
+🧠 Interview One-Liner
+
+SSH port forwarding allows securely tunneling network traffic through an encrypted SSH connection, enabling access to otherwise inaccessible services.
+
+⚠️ Interview Traps
+
+❌ Confusing SSH tunneling with VPN
+❌ Saying it replaces load balancers
+❌ Forgetting dynamic forwarding
+
+🏆 Real-World Use Cases
+
+Access RDS in private subnet
+
+Secure admin panels
+
+Temporary exposure for debugging
+
+Bypass restrictive networks
 </b></details>
 
 <a name="questions-linux-wildcards"></a>
@@ -1013,14 +1660,200 @@ Learn more : [How can I tell how many bits my ssh key is? - Superuser](https://s
 
 <details>
 <summary>What is Globbing?</summary><br><b>
+  🔹 What is Globbing? (Interview-Ready)
+
+Globbing is a feature of the shell that expands wildcard patterns into matching file and directory names before a command is executed.
+
+👉 In short: the shell replaces patterns with actual filenames.
+
+🔹 Common Globbing Patterns
+Pattern	Meaning	Example
+*	Matches any number of characters	ls *.log
+?	Matches exactly one character	ls file?.txt
+[abc]	Matches one character from set	ls file[12].txt
+[a-z]	Matches a range	ls file[a-z].txt
+[^abc]	Matches any char except listed	ls file[^0-9].txt
+🔹 Example
+
+Directory contents:
+
+app.log
+error.log
+app.txt
+
+
+Command:
+
+ls *.log
+
+
+Shell expands it to:
+
+ls app.log error.log
+
+
+✔ ls never sees *.log, it sees the expanded filenames.
+
+🔹 Important Interview Concept (TRAP)
+
+❌ Globbing is NOT done by the kernel
+❌ Globbing is NOT done by the command
+
+✅ Globbing is done by the shell (bash, zsh, etc.)
+
+🔹 When Globbing Happens
+
+You type a command
+
+Shell performs globbing
+
+Shell executes the command with expanded arguments
+
+🔹 Disable Globbing (Bonus)
+set -f     # disable globbing
+set +f     # enable globbing
+
+🧠 One-Line Interview Answer
+
+Globbing is shell-side pattern matching that expands wildcard expressions into matching file and directory names before command execution.
+
+🔥 Real-World Use
+
+Batch file operations
+
+Log cleanup
+
+Config file selection
+
+Automation scripts
 </b></details>
 
 <details>
 <summary>What are wildcards? Can you give an example of how to use them?</summary><br><b>
+  🔹 What are Wildcards? (Interview-Ready)
+
+Wildcards are special characters used by the shell to match file and directory names.
+They are part of globbing, not regular expressions.
+
+🔹 Common Wildcards
+Wildcard	Meaning
+*	Matches zero or more characters
+?	Matches exactly one character
+[abc]	Matches one character from the set
+[a-z]	Matches a range
+[^abc]	Matches any character except those listed
+🔹 Examples
+1️⃣ * – any characters
+ls *.log
+
+
+Matches:
+
+app.log  error.log
+
+2️⃣ ? – exactly one character
+ls file?.txt
+
+
+Matches:
+
+file1.txt  fileA.txt
+
+3️⃣ Character set
+ls file[12].txt
+
+
+Matches:
+
+file1.txt  file2.txt
+
+4️⃣ Range
+ls backup[0-9].tar
+
+5️⃣ Negation
+ls file[^0-9].txt
+
+
+Matches filenames not containing digits
+
+🔹 Important Interview Point (TRAP)
+
+❌ Wildcards are NOT processed by the kernel
+❌ Wildcards are NOT processed by the command
+
+✅ They are expanded by the shell before execution
+
+🔹 Wildcards vs Regex (Quick Mention)
+Wildcards	Regex
+Shell file matching	Pattern matching text
+Simple	Powerful
+Used by shell	Used by tools like grep, sed
+🧠 One-Line Interview Answer
+
+Wildcards are shell characters used in globbing to match filenames, such as *, ?, and [a-z].
+
+🔥 Real-World Use Cases
+
+Cleaning logs: rm *.log
+
+Searching configs: ls *.yml
+
+Automation scripts
 </b></details>
 
 <details>
 <summary>Explain what will <code>ls [XYZ]</code> match</summary><br><b>
+  🔹 What will ls [XYZ] match? (Interview-Ready)
+
+ls [XYZ] will match files or directories whose names consist of exactly ONE character, and that character must be X, Y, or Z.
+
+🔹 How it works
+
+[XYZ] is a character class
+
+It matches exactly one character
+
+That character must be one of: X, Y, or Z
+
+🔹 Example
+
+Directory contents:
+
+X   Y   Z
+XY  fileX  xyz
+
+
+Command:
+
+ls [XYZ]
+
+
+Output:
+
+X  Y  Z
+
+
+❌ Not matched:
+
+XY → more than one character
+
+fileX → more than one character
+
+xyz → lowercase (case-sensitive)
+
+🔹 Key Interview Points (TRAPS)
+
+✔ Matches one-character filenames only
+
+✔ Case-sensitive
+
+❌ Does NOT match filenames containing X, Y, or Z anywhere
+
+❌ Does NOT match multi-character names
+
+🧠 One-Line Interview Answer
+
+ls [XYZ] matches filenames that are exactly one character long and that character is either X, Y, or Z.
 </b></details>
 
 <details>
@@ -1071,10 +1904,14 @@ lines 1 and 3.
 
 <details>
 <summary>What is escaping? What escape character is used for escaping?</summary><br><b>
+  🔹 What is Escaping? (Interview-Ready)
+
+Escaping is the process of preventing the shell from interpreting a character with special meaning, so it is treated literally.
 </b></details>
 
 <details>
 <summary>What is an exit code? What exit codes are you familiar with?</summary><br><b>
+
 
 An exit code (or return code) represents the code returned by a child process to its
 parent process.
@@ -1092,6 +1929,174 @@ I consider this as a good blog post to read more about it: https://shapeshed.com
 <summary>Tell me everything you know about the Linux boot process</summary><br><b>
 
 Another way to ask this: what happens from the moment you turned on the server until you get a prompt
+
+When a system boots, BIOS/UEFI initializes hardware and loads GRUB, which loads the Linux kernel and initramfs. The kernel initializes hardware and starts systemd as PID 1, which mounts filesystems, starts services, and finally presents a login prompt.
+
+🐧 Linux Boot Process (End-to-End)
+🔌 1️⃣ Power On → BIOS / UEFI
+
+When you turn on the server:
+
+BIOS or UEFI firmware starts
+
+Performs POST (Power-On Self Test)
+
+Detects CPU, RAM, disks, peripherals
+
+Finds bootable device based on boot order
+
+📌 Interview note:
+
+Legacy systems → BIOS
+
+Modern systems → UEFI
+
+💽 2️⃣ Bootloader (GRUB2)
+
+Firmware loads the bootloader from disk.
+
+Common bootloader:
+
+GRUB2
+
+GRUB responsibilities:
+
+Displays boot menu
+
+Loads:
+
+Linux kernel
+
+initramfs / initrd
+
+Passes kernel parameters
+
+Files involved:
+
+/boot/grub2/grub.cfg
+/boot/vmlinuz-*
+/boot/initramfs-*
+
+
+📌 Secure Boot:
+
+Ensures kernel & bootloader are signed and trusted
+
+🧠 3️⃣ Kernel Initialization
+
+Once GRUB loads the kernel:
+
+Kernel does:
+
+Decompresses itself
+
+Initializes:
+
+CPU scheduling
+
+Memory management
+
+Device drivers
+
+Mounts initramfs as temporary root filesystem
+
+📌 Kernel runs entirely in kernel space
+
+🧩 4️⃣ initramfs (Early Userspace)
+
+initramfs contains minimal tools to:
+
+Load required drivers (LVM, RAID, disk, filesystem)
+
+Detect root filesystem
+
+Mount the real root filesystem
+
+Switch from initramfs → real root (/)
+
+📌 Without initramfs → system may fail to boot
+
+⚙️ 5️⃣ init / systemd (PID 1)
+
+Kernel starts the first userspace process:
+
+PID 1 → systemd
+
+
+(systemd replaced SysVinit & Upstart)
+
+Responsibilities:
+
+Mount remaining filesystems
+
+Start system services
+
+Handle dependencies
+
+Manage targets (runlevels)
+
+Check PID 1:
+
+ps -p 1
+
+🎯 6️⃣ systemd Targets (Runlevels)
+
+systemd switches to a target:
+
+Common targets:
+
+multi-user.target → CLI server
+
+graphical.target → GUI
+
+Equivalent to old runlevels:
+
+Runlevel	systemd target
+3	multi-user
+5	graphical
+🧰 7️⃣ Services Startup
+
+systemd starts services in parallel:
+
+Network
+
+SSH
+
+Cron
+
+Docker, kubelet, etc.
+
+Check services:
+
+systemctl list-units --type=service
+
+👤 8️⃣ Login Prompt Appears
+
+Finally:
+
+getty starts
+
+Login prompt shown:
+
+CLI → tty
+
+GUI → display manager (gdm, lightdm)
+
+You log in → shell starts → system is ready
+
+🔄 Boot Flow Summary (One-Liner)
+Power ON → BIOS/UEFI → GRUB → Kernel → initramfs → systemd (PID 1) → Services → Login Prompt
+
+🎯 Interview Traps (VERY IMPORTANT)
+
+❌ Saying kernel is PID 1
+❌ Forgetting initramfs
+❌ Mixing BIOS & GRUB roles
+❌ Not knowing systemd replaces init
+
+🧠 Short Interview Answer (Perfect)
+
+When a system boots, BIOS/UEFI initializes hardware and loads GRUB, which loads the Linux kernel and initramfs. The kernel initializes hardware and starts systemd as PID 1, which mounts filesystems, starts services, and finally presents a login prompt
 </b></details>
 
 <details>
@@ -1100,10 +2105,74 @@ Another way to ask this: what happens from the moment you turned on the server u
 
 <details>
 <summary>What is Secure Boot?</summary><br><b>
+  🔐 What is Secure Boot? (Interview-Ready)
+
+Secure Boot is a UEFI security feature that ensures only trusted, digitally signed software is allowed to run during the system boot process.
+
+👉 It prevents malicious or unauthorized bootloaders and kernels from executing.
+
+🔹 Why Secure Boot is needed
+
+Protects against bootkits and rootkits
+
+Ensures boot chain integrity
+
+Prevents low-level malware before OS loads
+
+🔹 How Secure Boot works (Step-by-Step)
+
+System powers on → UEFI firmware
+
+UEFI checks the digital signature of:
+
+Bootloader (e.g., GRUB)
+
+Kernel
+
+Signature is verified using trusted keys stored in firmware
+
+If valid → boot continues
+
+If invalid → boot is blocked
+
+🔑 Keys Used in Secure Boot
+Key	Purpose
+PK (Platform Key)	Root of trust
+KEK (Key Exchange Key)	Manages allowed databases
+db	Allowed trusted signatures
+dbx	Revoked/blocked signatures
+🔹 Secure Boot & Linux
+
+Most major distros (RHEL, Ubuntu, SUSE) support Secure Boot
+
+Use shim loader signed by Microsoft
+
+Custom kernels require manual signing
+
+🔹 Secure Boot vs UEFI (Interview Trap)
+
+❌ Secure Boot ≠ UEFI
+
+✅ Secure Boot is a feature of UEFI
+
+🔹 When to disable Secure Boot?
+
+Custom kernels
+
+Unsigned drivers
+
+Certain virtualization or kernel modules
+
+⚠️ Disabling reduces boot-time security
+
+🧠 One-Line Interview Answer
+
+Secure Boot is a UEFI feature that ensures only digitally signed and trusted bootloaders and kernels are executed during system startup.
 </b></details>
 
 <details>
 <summary>What can you find in /boot?</summary><br><b>
+  The /boot directory contains all files required to boot the Linux system.
 </b></details>
 
 <a name="questions-linux-disk-fs"></a>
@@ -1176,6 +2245,66 @@ There are many answers for this question. One way is running `df -T`
 
 <details>
 <summary>What is a swap partition? What is it used for?</summary><br><b>
+  🔹 1️⃣ What is a Swap Partition?
+
+A swap partition is a dedicated disk partition used by Linux as virtual memory when physical RAM is full.
+
+It acts like overflow space for RAM.
+
+Usually created during installation or added later.
+
+🔹 2️⃣ What is it used for?
+
+Memory Overflow:
+When RAM is full, the kernel moves inactive pages to swap, freeing RAM for active processes.
+
+Hibernation Support:
+Swap stores the entire content of RAM when hibernating the system.
+
+Kernel Stability:
+Helps prevent out-of-memory (OOM) crashes by providing extra virtual memory.
+
+🔹 3️⃣ Swap Partition vs Swap File
+Swap Partition	Swap File
+Dedicated partition	Regular file on a filesystem
+Slightly faster	Flexible size, easy to resize
+Must modify partitions to resize	Can resize easily with fallocate or dd
+Typically used for hibernation	Less ideal for hibernation
+
+✅ Both serve the same purpose (virtual memory), difference is implementation.
+
+🔹 4️⃣ How to Check Swap
+swapon --show
+
+
+Example output:
+
+NAME      TYPE  SIZE  USED  PRIO
+/dev/sda3 partition 2G   0B    -2
+
+free -h
+
+
+Shows RAM + swap usage.
+
+🔹 5️⃣ How to Add Swap
+
+Swap Partition (existing disk):
+
+mkswap /dev/sda3
+swapon /dev/sda3
+
+
+Swap File:
+
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+
+🧠 One-Line Interview Answer
+
+A swap partition is a dedicated disk area used as virtual memory when RAM is full; swapping can be done either on a partition or a swap file, with the main difference being that partitions are fixed and files are flexible.
 </b></details>
 
 <details>
